@@ -237,6 +237,7 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
     params['R0'] = float(R0)
     params['incubation_period'] = float(latent_period)
     params['infectious_period'] = float(infectious_period)
+    params["RNG_starting_seed"] = 147125098488
     stochastic_sim = msp.StochasticSimulations(
         params, n_sim, print_summary_stats=False, show_plots=False)
     
@@ -260,7 +261,7 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
         x for x in df_spaghetti_infected['simulation_idx'].unique()
         if x != index_sim_closest_median
         ]
-    sample_idx = np.random.choice(possible_idx, nb_curves_displayed, replace=False)
+    sample_idx = np.random.Generator(np.random.MT19937(12345)).choice(possible_idx, nb_curves_displayed, replace=False)
     
     # df_plot = pd.concat([
     #     df_spaghetti_infected.loc[df_spaghetti_infected['simulation_idx'].isin(sample_idx)],
