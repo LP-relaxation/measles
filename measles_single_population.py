@@ -322,6 +322,22 @@ class StochasticSimulations:
 
         for i_sim in range(self.n_sim):
 
+            # For reproducibility, create a FIXED starting point
+            #   for the random number generator. Simulations and
+            #   random variables are still RANDOM (pseudorandom,
+            #   as all computer code is), but the random starting
+            #   point is the same. Therefore, the pseudorandomness
+            #   does NOT change after refreshing or re-running an experiment,
+            #   and results are truly reproducible.
+
+            # NOTE: creating a new random number generator for every
+            #   replication is actually REALLY slow. Here, we just use
+            #   ONE random number generator rather than a new jumped one
+            #   for each replication. Still fixes reproducibility.
+            #   Still draws independent random numbers (recall that
+            #   RNGs move in-place after spitting out random numbers --
+            #   so their next sample starts where things last left off.)
+
             # Create and run model
             model = MetapopulationSEPIR(self.params)
             model.RNG = self.RNG
