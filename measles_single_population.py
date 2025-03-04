@@ -27,7 +27,6 @@ pd.set_option('display.max_rows', None)
 pd.options.display.float_format = '{:,.4}'.format
 np.set_printoptions(threshold=sys.maxsize)
 
-
 # %% Functions
 ##############
 
@@ -129,8 +128,7 @@ class MetapopulationSEPIR:
         # Stochastic simulations
         self.is_stochastic = params['is_stochastic']
         if self.is_stochastic:
-            self._bit_generator = np.random.MT19937(seed=params['RNG_seed'])
-            self.RNG = np.random.Generator(self._bit_generator)
+            self.RNG = None
 
         # Number contacts
         self.school_contacts = params['school_contacts']
@@ -304,6 +302,8 @@ class StochasticSimulations:
         self.params['sigma'] = 1.0 / self.params['incubation_period']
         self.params['gamma'] = 1.0 / self.params['infectious_period']
 
+        self.RNG = np.random.Generator(np.random.MT19937(seed=params["RNG_starting_seed"]))
+
         self.n_sim = n_sim
         self.print_summary_stats = print_summary_stats
         self.show_plots = show_plots
@@ -320,12 +320,11 @@ class StochasticSimulations:
 
     def run_stochastic_model(self):
 
-        seed_base = int(time.time() % 1 * 1000000)
         for i_sim in range(self.n_sim):
-            self.params['RNG_seed'] = i_sim + seed_base
 
             # Create and run model
             model = MetapopulationSEPIR(self.params)
+            model.RNG = self.RNG
             model.simulate()
 
             self.cumulative_new_infected_pop_1 = model.R[:, 0] - model.R[0, 0] - params['I0'][0]
@@ -350,6 +349,9 @@ class StochasticSimulations:
 
             self.incidence_school_1[i_sim, :] = \
                 np.add.reduceat(S_to_E_school_1, np.arange(0, total_steps, self.steps_per_day))
+
+            # assert np.sum(self.incidence_school_1[i_sim, :]) == \
+            #       self.cumulative_new_infected_pop_1[-1]
 
             self.incidence_school_1_7day_ma = calculate_np_moving_average(
                 self.incidence_school_1, 7, shorter_window_beginning=True
@@ -549,8 +551,8 @@ params = {
     'vaccinated_percent': [0.9],  # number between 0 and 1
     'sim_duration_days': 250,
     'time_step_days': 0.25,
-    'is_stochastic': True,  # False for deterministic
-    'RNG_seed': int(time.time() * 1000),  # 2025,
+    'is_stochastic': True,  # False for deterministic,
+    "RNG_starting_seed": 147125098488
 }
 n_sim = 100
 

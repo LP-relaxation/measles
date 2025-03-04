@@ -282,21 +282,21 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
         )
     fig.update_layout(showlegend=False)
     
-    # Incidence test
-    df_plot = pd.concat([
-        df_spaghetti_incidence.loc[df_spaghetti_incidence['simulation_idx'].isin(sample_idx)],
-        df_spaghetti_incidence.loc[df_spaghetti_incidence['simulation_idx'] == index_sim_closest_median]
-    ])
-
-    fig = px.line(
-        df_plot,
-        x='day',
-        y='number_incidence',
-        color='simulation_idx',
-        color_discrete_map=color_map
-        # alpha=0.1
-    )
-    fig.update_layout(showlegend=False)
+    # Incidence -- but Lauren doesn't want incidence right now
+    # df_plot = pd.concat([
+    #     df_spaghetti_incidence.loc[df_spaghetti_incidence['simulation_idx'].isin(sample_idx)],
+    #     df_spaghetti_incidence.loc[df_spaghetti_incidence['simulation_idx'] == index_sim_closest_median]
+    # ])
+    #
+    # fig = px.line(
+    #     df_plot,
+    #     x='day',
+    #     y='number_incidence',
+    #     color='simulation_idx',
+    #     color_discrete_map=color_map
+    #     # alpha=0.1
+    # )
+    # fig.update_layout(showlegend=False)
     
     # Summary statistics
     Rt = params['R0'] * (1 - 0.01 * float(vax_rate))
