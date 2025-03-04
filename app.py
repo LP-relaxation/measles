@@ -12,14 +12,10 @@ import pandas as pd
 import numpy as np
 import copy
 
-# import dash
 import dash_bootstrap_components as dbc
-# import dash_ag_grid as dag
-# import plotly.graph_objects as go
 
 import measles_single_population as msp
 
-# df = pd.read_csv('TX_kindergarten_MMR_vax_rate.csv')
 df = pd.read_csv('TX_MMR_vax_rate.csv')
 df = df.loc[df['age_group'] == 'Kindergarten'].copy()
 
@@ -67,23 +63,6 @@ school_dropdown = html.Div(
     ],  className="mb-4",
     style={'width': '70%'}
 )
-
-# age_options = sorted(df_county["age_group"].unique())
-# initial_age = age_options[1]
-# age_dropdown = html.Div(
-#     [
-#         dbc.Label("Select an Age Group", html_for="age_dropdown"),
-#         dcc.Dropdown(
-#             id="age-dropdown",
-#             options=age_options,
-#             value=initial_age,
-#             clearable=False,
-#             maxHeight=600,
-#             optionHeight=50
-#         ),
-#     ],  className="mb-4",
-#     style={'width': '70%'}
-# )
 
 ## Base parameters selection
 # If using county and school selector this should be selected automatically
@@ -148,13 +127,6 @@ infectious_period_selector = dcc.Input(
             value=8.0,
         )
 
-
-
-# empty_text = dcc.Textarea(
-#         id='empty_text',
-#         value='  ',
-#         style={'width': '80%', 'height': 30},
-#     )
 empty_text = html.Div(html.P(
         [' ---', '']))
 effective_reproduction_number = dcc.Textarea(
@@ -173,10 +145,8 @@ cases_expected_over_20 = dcc.Textarea(
         style={'width': '80%', 'height': 30},
     )
 
-
 app = Dash(
     prevent_initial_callbacks = 'initial_duplicate')
-
 
 app.layout = html.Div([
     html.Div(children=[
@@ -271,6 +241,7 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
         params, n_sim, print_summary_stats=False, show_plots=False)
     
     # Graph
+    df_spaghetti_incidence = stochastic_sim.df_spaghetti_incidence
     df_spaghetti_infected = stochastic_sim.df_spaghetti_infected
     df_spaghetti_infected_ma = stochastic_sim.df_spaghetti_infected_ma
     index_sim_closest_median = stochastic_sim.index_sim_closest_median
@@ -301,16 +272,6 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
         df_spaghetti_infected_ma.loc[df_spaghetti_infected_ma['simulation_idx'] == index_sim_closest_median]
         ])
     
-    # fig = px.line(
-    #     df_plot,
-    #     x='day',
-    #     y='number_infected',
-    #     color='simulation_idx',
-    #     color_discrete_map=color_map
-    #     # alpha=0.1
-    #     )
-    # fig.update_layout(showlegend=False)
-    
     fig = px.line(
         df_plot,
         x='day',
@@ -319,6 +280,22 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
         color_discrete_map=color_map
         # alpha=0.1
         )
+    fig.update_layout(showlegend=False)
+    
+    # Incidence test
+    df_plot = pd.concat([
+        df_spaghetti_incidence.loc[df_spaghetti_incidence['simulation_idx'].isin(sample_idx)],
+        df_spaghetti_incidence.loc[df_spaghetti_incidence['simulation_idx'] == index_sim_closest_median]
+    ])
+
+    fig = px.line(
+        df_plot,
+        x='day',
+        y='number_incidence',
+        color='simulation_idx',
+        color_discrete_map=color_map
+        # alpha=0.1
+    )
     fig.update_layout(showlegend=False)
     
     # Summary statistics
@@ -383,22 +360,6 @@ def update_school_selector(county):
     # age_selected = new_age_options[1]
     
     return new_school_options, school_selected#, new_age_options, age_selected
-
-# @callback(
-#       [Output('age-dropdown', 'options'),
-#       Output('age-dropdown', 'value')
-#       #Output('vax_rate', 'value', allow_duplicate = True)
-#       ],
-#       [Input('school-dropdown', 'value')],
-#       prevent_initial_call=True
-# )
-# def update_age_selector(school):
-#     df_school = df.loc[df['School District or Name'] == school]
-    
-#     new_age_options = sorted(df_school["age_group"].unique())
-#     age_selected = new_age_options[1]
-    
-#     return new_age_options, age_selected
 
 
 @callback(
