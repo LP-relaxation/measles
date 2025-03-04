@@ -160,7 +160,8 @@ class MetapopulationSEPIR:
         self.I_to_R = np.zeros((self.n_steps, self.n_pop))
 
         # Set initial conditions
-        self.I[0] = np.array(params['I0'])
+        self.I[0] = np.array(params['I0'])  # Set initial conditions for infections
+        '''
         self.R[0] = [
             int(self.N[i_pop] * params['vaccinated_percent'][i_pop])
             for i_pop in range(self.n_pop)
@@ -169,7 +170,21 @@ class MetapopulationSEPIR:
             min(self.R[0, i_pop], self.N[i_pop] - self.I[0, i_pop])
             for i_pop in range(self.n_pop)
         ]
-        self.S[0] = self.N - self.I[0] - self.R[0]
+        '''
+        # Compute number of recovered (vaccinated students moved to R), ensuring integer values
+        self.R[0] = np.array([
+            int(round(self.N[i_pop] * params['vaccinated_percent'][i_pop]))  # Round to ensure whole number
+            for i_pop in range(self.n_pop)
+        ])
+
+        # Compute the max possible I0 based on un-vaccinated students remaining
+        for i_pop in range(self.n_pop):
+            self.max_unvax = self.N[i_pop] - self.R[0, i_pop]  # Max susceptible (N - vaccinated)
+            self.I[0, i_pop] = int(np.minimum(self.I[0, i_pop], self.max_unvax))
+
+        self.R[0] = np.minimum(self.R[0], self.N - self.I[0]) # Ensure R does not exceed available population
+
+        self.S[0] = self.N - self.I[0] - self.R[0] # Final initial susceptible from what remains after Infected and Vaccinated
 
         # Current step tracker
         self.current_step = 0
