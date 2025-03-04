@@ -258,7 +258,6 @@ class MetapopulationSEPIR:
             self.R[self.current_step + 1, i_pop] = self.R[self.current_step, i_pop] + updates["dR"]
 
             # Also update transition variables history
-            # breakpoint()
             self.S_to_E[self.current_step + 1, i_pop] = updates["dS_out"]
             self.E_to_I[self.current_step + 1, i_pop] = updates["dE_out"]
             self.I_to_R[self.current_step + 1, i_pop] = updates["dI_out"]
@@ -341,7 +340,16 @@ class StochasticSimulations:
 
             # At Lauren's request -- from Slack 03042025 --
             # "just the number of new transitions from S to E"
-            self.incidence_school_1[i_sim, :] = model.S_to_E[::self.steps_per_day, 0]
+            # Note -- because incidence is S_to_E at a given time (and not cumulative),
+            #   we have to SUM all the people that move from S_to_E within a day --
+            #   i.e. summing all the people that move from S to E over self.steps_per_day --
+            #   this is DIFFERENT than checking I every day (every self.steps_per_day)
+            
+            S_to_E_school_1 = model.S_to_E[:, 0]
+            total_steps = len(S_to_E_school_1)
+
+            self.incidence_school_1[i_sim, :] = \
+                np.add.reduceat(S_to_E_school_1, np.arange(0, total_steps, self.steps_per_day))
 
             self.incidence_school_1_7day_ma = calculate_np_moving_average(
                 self.incidence_school_1, 7, shorter_window_beginning=True
