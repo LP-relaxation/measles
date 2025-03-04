@@ -1,0 +1,74 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="InconsistentLineSeparators" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="ProblematicWhitespace" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="false" level="WARNING" enabled_by_default="false">
+      <option name="ignoredPackages">
+        <value>
+          <list size="0" />
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="W605" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N803" />
+          <option value="N806" />
+          <option value="N802" />
+        </list>
+      </option>
+      <option name="ignoredBaseClasses">
+        <list>
+          <option value="unittest.TestCase" />
+          <option value="unittest.case.TestCase" />
+          <option value="DataObjects.EpiSetup" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyTypeCheckerInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="num_age_groups" />
+          <option value="population_immunity_inf" />
+          <option value="num_risk_groups" />
+          <option value="beta" />
+          <option value="total_population_val" />
+          <option value="immunity_hosp_increase_factor" />
+          <option value="immunity_inf_increase_factor" />
+          <option value="immunity_hosp_saturation_constant" />
+          <option value="immunity_inf_saturation_constant" />
+          <option value="waning_factor_hosp" />
+          <option value="waning_factor_inf" />
+          <option value="efficacy_immunity_hosp" />
+          <option value="efficacy_immunity_inf" />
+          <option value="efficacy_immunity_death" />
+          <option value="R_to_S_rate" />
+          <option value="E_to_I_rate" />
+          <option value="I_to_R_rate" />
+          <option value="I_to_H_rate" />
+          <option value="H_to_R_rate" />
+          <option value="H_to_D_rate" />
+          <option value="I_to_H_adjusted_proportion" />
+          <option value="H_to_D_adjusted_proportion" />
+          <option value="S" />
+          <option value="E" />
+          <option value="I" />
+          <option value="H" />
+          <option value="R" />
+          <option value="D" />
+          <option value="population_immunity_hosp" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="TodoComment" enabled="true" level="WARNING" enabled_by_default="true" />
+  </profile>
+</component>
