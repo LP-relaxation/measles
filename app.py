@@ -705,12 +705,12 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
     # What uncertainty should we display for outbreak size
     outbreak_size_uncertainty_displayed = '95'  # '90' '95' 'range' 'IQR'
 
-    if stochastic_sim.expected_outbreak_size == 'NA':
-        expected_outbreak_size_str = stochastic_sim.expected_outbreak_size
+    if stochastic_sim.mean_outbreak_given_20_new_infections == 'NA':
+        mean_outbreak_given_20_new_infections_str = stochastic_sim.mean_outbreak_given_20_new_infections
         cases_expected_over_20 = "Fewer than 20 cases"
 
     else:
-        expected_outbreak_size_str = str(int(stochastic_sim.expected_outbreak_size))
+        mean_outbreak_given_20_new_infections_str = str(int(stochastic_sim.mean_outbreak_given_20_new_infections))
 
         if outbreak_size_uncertainty_displayed == '90':
             quantile_lb = 5
@@ -731,7 +731,7 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
 
         uncertainty_outbreak_size_str = str(int(stochastic_sim.expected_outbreak_quantiles[quantile_lb])) + ' - ' + \
                                         str(int(stochastic_sim.expected_outbreak_quantiles[quantile_ub]))
-        # expected_outbreak_size_str += uncertainty_outbreak_size_str
+        # mean_outbreak_given_20_new_infections_str += uncertainty_outbreak_size_str
 
         cases_expected_over_20 = uncertainty_outbreak_size_str + " cases"
 
