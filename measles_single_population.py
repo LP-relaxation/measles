@@ -19,24 +19,33 @@ import copy
 # %% Print options
 ##################
 pd.set_option('display.precision', 1)
-np.set_printoptions(precision=4)
-np.set_printoptions(linewidth=185)
 pd.set_option('display.width', 185)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.options.display.float_format = '{:,.4}'.format
+
 np.set_printoptions(threshold=sys.maxsize)
+np.set_printoptions(precision=4)
+np.set_printoptions(linewidth=185)
+
 
 # %% Functions
 ##############
 
 def transform_matrix_to_long_df(
-        np_array, colnames=None, id_col='time_idx', id_values=None,
-        var_name='idx', value_name='value'):
+        np_array: np.ndarray,
+        colnames: list[str] = None,
+        id_col: str = 'time_idx',
+        id_values: list[str] = None,
+        var_name: str ='idx',
+        value_name: str = 'value') -> pd.DataFrame:
     """
     Takes a 2D numpy array where each column represents a given simulation
     and each row an observation (ie, a date), and transforms the data in
     a pandas dataframe in a long format.
+
+    Long format: each row represents a single observation,
+    and each column represents a single variable. Easier to plot.
     """
 
     if colnames is None:
@@ -61,7 +70,9 @@ def transform_matrix_to_long_df(
 
 
 def calculate_np_moving_average(
-        np_array, window, shorter_window_beginning=True):
+        np_array: np.ndarray,
+        window: int,
+        shorter_window_beginning: bool = True) -> np.ndarray:
     """
     This takes a numpy 2-dimensional array and computes moving averages along
     the columns: each row represents a different time series.
@@ -97,7 +108,10 @@ def calculate_np_moving_average(
 
 
 def get_percentile_from_list(
-        values_list, percentile_value, error_value=0.0):
+        values_list: list[float],
+        percentile_value: float,
+        error_value = 0.0) -> float:
+
     if len(values_list) > 0:
         return np.percentile(values_list, q=percentile_value)
     else:
@@ -108,7 +122,8 @@ def get_percentile_from_list(
 ##########
 class MetapopulationSEPIR:
 
-    def __init__(self, params):
+    def __init__(self,
+                 params: dict):
         """
         Initialize metapopulation SEPIR model
         
@@ -119,6 +134,7 @@ class MetapopulationSEPIR:
         T: total simulation time
         dt: time step size
         """
+
         self.n_pop = len(params['population'])  # number of populations
         self.N = np.array(params['population'])  # population size
         self.dt = params['time_step_days']
@@ -130,7 +146,7 @@ class MetapopulationSEPIR:
         if self.is_stochastic:
             self.RNG = None
 
-        # Number contacts
+        # Number of contacts
         self.school_contacts = params['school_contacts']
         self.other_contacts_base = params['other_contacts']
         self.total_contacts = self.school_contacts + self.other_contacts_base
@@ -140,7 +156,7 @@ class MetapopulationSEPIR:
 
         self.beta = beta  # transmission rate
         self.sigma = 1.0 / params["incubation_period"]  # rate of progression from E to I
-        self.gamma = 1.0 / params["infectious_period"] # recovery rate
+        self.gamma = 1.0 / params["infectious_period"]  # recovery rate
 
         # Time array
         self.t = np.linspace(0, params['sim_duration_days'], self.n_steps)
@@ -163,33 +179,35 @@ class MetapopulationSEPIR:
         self.I[0] = np.array(params['I0'])  # Set initial conditions for infections
         '''
         self.R[0] = [
-            int(self.N[i_pop] * params['vaccinated_percent'][i_pop])
-            for i_pop in range(self.n_pop)
+            int(self.N[ix_pop] * params['vaccinated_percent'][ix_pop])
+            for ix_pop in range(self.n_pop)
         ]
         self.R[0] = [
-            min(self.R[0, i_pop], self.N[i_pop] - self.I[0, i_pop])
-            for i_pop in range(self.n_pop)
+            min(self.R[0, ix_pop], self.N[ix_pop] - self.I[0, ix_pop])
+            for ix_pop in range(self.n_pop)
         ]
         '''
         # Compute number of recovered (vaccinated students moved to R), ensuring integer values
         self.R[0] = np.array([
-            int(round(self.N[i_pop] * params['vaccinated_percent'][i_pop]))  # Round to ensure whole number
-            for i_pop in range(self.n_pop)
+            int(self.N[ix_pop] * params['vaccinated_percent'][ix_pop])
+            for ix_pop in range(self.n_pop)
         ])
 
         # Compute the max possible I0 based on un-vaccinated students remaining
-        for i_pop in range(self.n_pop):
-            self.max_unvax = self.N[i_pop] - self.R[0, i_pop]  # Max susceptible (N - vaccinated)
-            self.I[0, i_pop] = int(np.minimum(self.I[0, i_pop], self.max_unvax))
+        for ix_pop in range(self.n_pop):
+            self.max_unvax = self.N[ix_pop] - self.R[0, ix_pop]  # Max susceptible (N - vaccinated)
+            self.I[0, ix_pop] = int(np.minimum(self.I[0, ix_pop], self.max_unvax))
 
-        self.R[0] = np.minimum(self.R[0], self.N - self.I[0]) # Ensure R does not exceed available population
+        self.R[0] = np.minimum(self.R[0], self.N - self.I[0])  # Ensure R does not exceed available population
 
-        self.S[0] = self.N - self.I[0] - self.R[0] # Final initial susceptible from what remains after Infected and Vaccinated
+        self.S[0] = self.N - self.I[0] - self.R[0]  # Final initial susceptible from what remains after Infected and Vaccinated
 
         # Current step tracker
         self.current_step = 0
 
-    def get_compartment_transition(self, rate, compartment_count):
+    def get_compartment_transition(self,
+                                   rate: float,
+                                   compartment_count: int) -> float:
         """
         For a given compartment and a given rate, this calculates the number
         of individuals transitioning out of the compartment.
@@ -200,7 +218,7 @@ class MetapopulationSEPIR:
         rate : double
             Force of infection for new infected, rate out of compartment
             otherwise.
-        compartment_count : double
+        compartment_count : int
             Number of individuals in compartment.
 
         Returns
@@ -219,13 +237,14 @@ class MetapopulationSEPIR:
 
         return delta
 
-    def calculate_compartment_updates(self, i_pop) -> dict:
+    def calculate_compartment_updates(self,
+                                      ix_pop: int) -> dict:
         """
-        Calculates changes in compartments for population i_pop.
+        Calculates changes in compartments for population ix_pop.
 
         Parameters
         ----------
-        i_pop : int
+        ix_pop : int
             Index of population.
 
         Returns
@@ -239,11 +258,11 @@ class MetapopulationSEPIR:
         dt = self.dt
 
         force_of_infection = self.beta * self.total_contacts * dt * \
-                             self.I[t, i_pop] / self.N[i_pop]
+                             self.I[t, ix_pop] / self.N[ix_pop]
 
-        dS_out = self.get_compartment_transition(force_of_infection, self.S[t, i_pop])
-        dE_out = self.get_compartment_transition(self.sigma * dt, self.E[t, i_pop])
-        dI_out = self.get_compartment_transition(self.gamma * dt, self.I[t, i_pop])
+        dS_out = self.get_compartment_transition(force_of_infection, self.S[t, ix_pop])
+        dE_out = self.get_compartment_transition(self.sigma * dt, self.E[t, ix_pop])
+        dI_out = self.get_compartment_transition(self.gamma * dt, self.I[t, ix_pop])
 
         dS = -dS_out
         dE = dS_out - dE_out
@@ -261,19 +280,19 @@ class MetapopulationSEPIR:
             return False
 
         # Loop through populations
-        for i_pop in range(self.n_pop):
-            updates = self.calculate_compartment_updates(i_pop)
+        for ix_pop in range(self.n_pop):
+            updates = self.calculate_compartment_updates(ix_pop)
 
             # Update compartments using Euler's method
-            self.S[self.current_step + 1, i_pop] = self.S[self.current_step, i_pop] + updates["dS"]
-            self.E[self.current_step + 1, i_pop] = self.E[self.current_step, i_pop] + updates["dE"]
-            self.I[self.current_step + 1, i_pop] = self.I[self.current_step, i_pop] + updates["dI"]
-            self.R[self.current_step + 1, i_pop] = self.R[self.current_step, i_pop] + updates["dR"]
+            self.S[self.current_step + 1, ix_pop] = self.S[self.current_step, ix_pop] + updates["dS"]
+            self.E[self.current_step + 1, ix_pop] = self.E[self.current_step, ix_pop] + updates["dE"]
+            self.I[self.current_step + 1, ix_pop] = self.I[self.current_step, ix_pop] + updates["dI"]
+            self.R[self.current_step + 1, ix_pop] = self.R[self.current_step, ix_pop] + updates["dR"]
 
             # Also update transition variables history
-            self.S_to_E[self.current_step + 1, i_pop] = updates["dS_out"]
-            self.E_to_I[self.current_step + 1, i_pop] = updates["dE_out"]
-            self.I_to_R[self.current_step + 1, i_pop] = updates["dI_out"]
+            self.S_to_E[self.current_step + 1, ix_pop] = updates["dS_out"]
+            self.E_to_I[self.current_step + 1, ix_pop] = updates["dE_out"]
+            self.I_to_R[self.current_step + 1, ix_pop] = updates["dI_out"]
 
         self.current_step += 1
         return True
@@ -324,10 +343,14 @@ class StochasticSimulations:
         self.show_plots = show_plots
         self.steps_per_day = int(np.round(1.0 / params['time_step_days'], 0))
 
-        self.nb_infected_school1 = np.zeros(shape=(n_sim))
+        self.new_infected_school1 = np.zeros(shape=(n_sim))
         self.infectious_school_1 = np.zeros(shape=(n_sim, params['sim_duration_days'] + 1))
         self.infected_school_1 = np.zeros(shape=(n_sim, params['sim_duration_days'] + 1))
         self.incidence_school_1 = np.zeros(shape=(n_sim, params['sim_duration_days'] + 1))
+
+        self.mean_outbreak_given_20_new_infections = 'NA'
+        self.mean_outbreak_given_20_new_infections_min = 'NA'
+        self.mean_outbreak_given_20_new_infections_max = 'NA'
 
         self.run_stochastic_model()
         self.calculate_summary_statistics_stochastic_runs()
@@ -336,7 +359,6 @@ class StochasticSimulations:
     def run_stochastic_model(self):
 
         for i_sim in range(self.n_sim):
-
             # For reproducibility, create a FIXED starting point
             #   for the random number generator. Simulations and
             #   random variables are still RANDOM (pseudorandom,
@@ -359,8 +381,8 @@ class StochasticSimulations:
             model.simulate()
 
             # Update so I0 is not param input, but what I0 was really used
-            self.cumulative_new_infected_pop_1 = model.R[:, 0] - model.R[0, 0] - model.I[0, 0] #params['I0'][0]
-            self.nb_infected_school1[i_sim] = self.cumulative_new_infected_pop_1[-1]
+            self.cumulative_new_infected_pop_1 = model.R[:, 0] - model.R[0, 0] - model.I[0, 0]  # params['I0'][0]
+            self.new_infected_school1[i_sim] = self.cumulative_new_infected_pop_1[-1]
 
             self.infectious_school_1[i_sim, :] = (
                 model.I[::self.steps_per_day, 0]
@@ -375,7 +397,7 @@ class StochasticSimulations:
             #   we have to SUM all the people that move from S_to_E within a day --
             #   i.e. summing all the people that move from S to E over self.steps_per_day --
             #   this is DIFFERENT than checking I every day (every self.steps_per_day)
-            
+
             S_to_E_school_1 = model.S_to_E[:, 0]
             total_steps = len(S_to_E_school_1)
 
@@ -385,12 +407,9 @@ class StochasticSimulations:
             # assert np.sum(self.incidence_school_1[i_sim, :]) == \
             #       self.cumulative_new_infected_pop_1[-1]
 
-            self.incidence_school_1_7day_ma = calculate_np_moving_average(
-                self.incidence_school_1, 7, shorter_window_beginning=True
-            )
+            self.incidence_school_1_7day_ma = calculate_np_moving_average(self.incidence_school_1, 7)
 
-            self.infected_school_1_7day_ma = calculate_np_moving_average(
-                self.infected_school_1, 7, shorter_window_beginning=True)
+            self.infected_school_1_7day_ma = calculate_np_moving_average(self.infected_school_1, 7)
 
             self.model = model
 
@@ -398,61 +417,46 @@ class StochasticSimulations:
 
     def calculate_summary_statistics_stochastic_runs(self):
 
-        unique, counts = np.unique(self.nb_infected_school1, return_counts=True)
+        unique, counts = np.unique(self.new_infected_school1, return_counts=True)
         df_infected_1 = pd.DataFrame({
-            'nb_infected': unique,
-            'nb_simulation': counts
+            'new_infected': unique,
+            'num_simulations': counts
         })
-        df_infected_1['probability'] = df_infected_1['nb_simulation'] / self.n_sim
+        df_infected_1['probability'] = df_infected_1['num_simulations'] / self.n_sim
 
-        median_nb_infected = np.median(self.nb_infected_school1)
+        median_new_infected = np.median(self.new_infected_school1)
         self.index_sim_closest_median = min(
-            range(len(self.nb_infected_school1)),
-            key=lambda i: abs(self.nb_infected_school1[i] - median_nb_infected)
+            range(len(self.new_infected_school1)),
+            key=lambda i: abs(self.new_infected_school1[i] - median_new_infected)
         )
 
         self.probability_5_plus_cases = df_infected_1.loc[
-            df_infected_1['nb_infected'] >= 5, 'probability'].sum()
+            df_infected_1['new_infected'] >= 5, 'probability'].sum()
         self.probability_10_plus_cases = df_infected_1.loc[
-            df_infected_1['nb_infected'] >= 10, 'probability'].sum()
+            df_infected_1['new_infected'] >= 10, 'probability'].sum()
         self.probability_20_plus_cases = df_infected_1.loc[
-            df_infected_1['nb_infected'] >= 20, 'probability'].sum()
+            df_infected_1['new_infected'] >= 20, 'probability'].sum()
 
         p_5_pct = '{:.0%}'.format(self.probability_5_plus_cases)
         p_10_pct = '{:.0%}'.format(self.probability_10_plus_cases)
         p_20_pct = '{:.0%}'.format(self.probability_20_plus_cases)
 
-        self.expected_infections_all_sim = self.nb_infected_school1.mean()
+        self.expected_infections_all_sim = self.new_infected_school1.mean()
         df_over_20 = df_infected_1.loc[
-            df_infected_1['nb_infected'] >= 20]  # , 'nb_infected']
+            df_infected_1['new_infected'] >= 20]  # , 'new_infected']
         if len(df_over_20) > 0:
             # change param input infections to what was used by the model
-            self.expected_outbreak_size = self.model.I[0, 0] + \
-                                          (df_over_20['nb_infected'] * df_over_20['probability']).sum() / \
+            self.mean_outbreak_given_20_new_infections = self.model.I[0, 0] + \
+                                          (df_over_20['new_infected'] * df_over_20['probability']).sum() / \
                                           df_over_20['probability'].sum()
-            cases_over_20 = self.nb_infected_school1[
-                self.nb_infected_school1 >= 20]
+            cases_over_20 = self.new_infected_school1[
+                self.new_infected_school1 >= 20]
             quantile_list = [0, 2.5, 5, 10, 25, 50, 75, 90, 95, 97.5, 100]
             self.expected_outbreak_quantiles = {
                 q: get_percentile_from_list(cases_over_20, q)
                 for q in quantile_list
             }
-
-        elif self.model.I[0, 0] > 20:
-            # Instead of returning NA if 0 simulations reach 20, we return the initial infections
-            # if there were at least 21 infections to start the simulation
-            self.expected_outbreak_size     = self.model.I[0, 0]
-            self.expected_outbreak_size_min = self.model.I[0, 0]
-            self.expected_outbreak_size_max = self.model.I[0, 0]
-
-            # No variability in quantiles all equal I0
-            quantile_list = [0, 2.5, 5, 10, 25, 50, 75, 90, 95, 97.5, 100]
-            self.expected_outbreak_quantiles = {q: self.model.I[0, 0] for q in quantile_list}
-
-        else:
-            self.expected_outbreak_size     = 'NA'
-            self.expected_outbreak_size_min = 'NA'
-            self.expected_outbreak_size_max = 'NA'
+        # else: expected outbreak attributes remain NA
 
         self.df_infected_1 = df_infected_1
 
@@ -464,104 +468,69 @@ class StochasticSimulations:
             print('Expected number of infections across all simulations:',
                   int(self.expected_infections_all_sim), 'cases')
 
-            if self.expected_outbreak_size == 'NA':
-                expected_outbreak_size_print = self.expected_outbreak_size
+            if self.mean_outbreak_given_20_new_infections == 'NA':
+                mean_outbreak_given_20_new_infections_print = self.mean_outbreak_given_20_new_infections
             else:
-                expected_outbreak_size_print = int(self.expected_outbreak_size)
+                mean_outbreak_given_20_new_infections_print = int(self.mean_outbreak_given_20_new_infections)
             print('Expected number of infections across outbreaks of size 20 or more:',
-                  expected_outbreak_size_print, 'cases')
+                  mean_outbreak_given_20_new_infections_print, 'cases')
 
         return
 
     def create_plots(self):
-        self.df_spaghetti_infected = transform_matrix_to_long_df(
-            self.infected_school_1.T,
-            colnames=list(range(self.n_sim)),
-            id_col='day',
-            id_values=list(range(1, 2 + params['sim_duration_days'])),
-            var_name='simulation_idx',
-            value_name='number_infected'
-        )
-        self.df_spaghetti_infected_ma = transform_matrix_to_long_df(
-            self.infected_school_1_7day_ma.T,
-            colnames=list(range(self.n_sim)),
-            id_col='day',
-            id_values=list(range(1, 2 + params['sim_duration_days'])),
-            var_name='simulation_idx',
-            value_name='number_infected_7_day_ma'
-        )
-        self.df_spaghetti_infectious = transform_matrix_to_long_df(
-            self.infectious_school_1.T,
-            colnames=list(range(self.n_sim)),
-            id_col='day',
-            id_values=list(range(1, 2 + params['sim_duration_days'])),
-            var_name='simulation_idx',
-            value_name='number_infectious'
-        )
-        self.df_spaghetti_incidence = transform_matrix_to_long_df(
-            self.incidence_school_1.T,
-            colnames=list(range(self.n_sim)),
-            id_col='day',
-            id_values=list(range(1, 2 + params['sim_duration_days'])),
-            var_name='simulation_idx',
-            value_name='number_incidence'
-        )
+
+        plot_data_dict = {
+            "df_spaghetti_infected": (self.infected_school_1, "number_infected"),
+            "df_spaghetti_infected_ma": (self.infected_school_1_7day_ma, "number_infected_7_day_ma"),
+            "df_spaghetti_infectious": (self.infectious_school_1, "number_infectious"),
+            "df_spaghetti_incidence": (self.incidence_school_1, "number_incidence")
+        }
+
+        id_values = list(range(1, 2 + params['sim_duration_days']))
+
+        for df_name, (matrix, value_name) in plot_data_dict.items():
+            setattr(self, df_name, transform_matrix_to_long_df(
+                matrix.T,
+                colnames=list(range(self.n_sim)),
+                id_col="day",
+                var_name="simulation_idx",
+                id_values=id_values,
+                value_name=value_name
+            ))
 
         if self.show_plots:
+
             nb_plots = 4
             fig, axs = plt.subplots(nb_plots, 1, figsize=(10, 6 * nb_plots))
-            i_plot = 0
 
-            ax = axs[i_plot]
+            # Histogram
             sns.histplot(
-                data=self.nb_infected_school1,
-                stat='percent',
-                # binwidth=5,
-                ax=ax)
-            ax.set_xlabel('Total infections')
-            ax.set_xlabel('Probability (%)')
-
-            i_plot += 1
-            ax = axs[i_plot]
-            sns.lineplot(
-                data=self.df_spaghetti_infected,
-                x='day',
-                y='number_infected',
-                units='simulation_idx',
-                alpha=0.1,
-                estimator=None,
-                ax=ax
+                data=self.new_infected_school1,
+                stat="percent",
+                ax=axs[0]
             )
-            ax.set_xlabel('Number of days since beginning of outbreak')
-            ax.set_ylabel('Number of infected individuals')
+            axs[0].set_xlabel("Total infections")
+            axs[0].set_ylabel("Probability (%)")
 
-            i_plot += 1
-            ax = axs[i_plot]
-            sns.lineplot(
-                data=self.df_spaghetti_infectious,
-                x='day',
-                y='number_infectious',
-                units='simulation_idx',
-                alpha=0.1,
-                estimator=None,
-                ax=ax
-            )
-            ax.set_xlabel('Number of days since beginning of outbreak')
-            ax.set_ylabel('Number of infectious individuals')
+            # Line charts
+            plot_data = [
+                (self.df_spaghetti_infected, "number_infected", "Infected individuals"),
+                (self.df_spaghetti_infectious, "number_infectious", "Infectious individuals"),
+                (self.df_spaghetti_incidence, "number_incidence", "Newly exposed individuals"),
+            ]
 
-            i_plot += 1
-            ax = axs[i_plot]
-            sns.lineplot(
-                data=self.df_spaghetti_incidence,
-                x='day',
-                y='number_incidence',
-                units='simulation_idx',
-                alpha=0.1,
-                estimator=None,
-                ax=ax
-            )
-            ax.set_xlabel('Number of days since beginning of outbreak')
-            ax.set_ylabel('Number of newly exposed individuals')
+            for ax, (data, y_col, ylabel) in zip(axs[1:], plot_data):
+                sns.lineplot(
+                    data=data,
+                    x="day",
+                    y=y_col,
+                    units="simulation_idx",
+                    alpha=0.1,
+                    estimator=None,
+                    ax=ax
+                )
+                ax.set_xlabel("Days since outbreak start")
+                ax.set_ylabel(ylabel)
 
             plt.show()
 
