@@ -358,7 +358,8 @@ class StochasticSimulations:
             model.RNG = self.RNG
             model.simulate()
 
-            self.cumulative_new_infected_pop_1 = model.R[:, 0] - model.R[0, 0] - params['I0'][0]
+            # Update so I0 is not param input, but what I0 was really used
+            self.cumulative_new_infected_pop_1 = model.R[:, 0] - model.R[0, 0] - model.I[0, 0] #params['I0'][0]
             self.nb_infected_school1[i_sim] = self.cumulative_new_infected_pop_1[-1]
 
             self.infectious_school_1[i_sim, :] = (
