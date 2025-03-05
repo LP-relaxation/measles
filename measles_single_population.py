@@ -426,7 +426,8 @@ class StochasticSimulations:
         df_over_20 = df_infected_1.loc[
             df_infected_1['nb_infected'] >= 20]  # , 'nb_infected']
         if len(df_over_20) > 0:
-            self.expected_outbreak_size = params['I0'][0] + \
+            # change param input infections to what was used by the model
+            self.expected_outbreak_size = self.model.I[0, 0] + \
                                           (df_over_20['nb_infected'] * df_over_20['probability']).sum() / \
                                           df_over_20['probability'].sum()
             cases_over_20 = self.nb_infected_school1[
@@ -437,10 +438,22 @@ class StochasticSimulations:
                 for q in quantile_list
             }
 
+        elif self.model.I[0, 0] > 20:
+            # Instead of returning NA if 0 simulations reach 20, we return the initial infections
+            # if there were at least 21 infections to start the simulation
+            self.expected_outbreak_size     = self.model.I[0, 0]
+            self.expected_outbreak_size_min = self.model.I[0, 0]
+            self.expected_outbreak_size_max = self.model.I[0, 0]
+
+            # No variability in quantiles all equal I0
+            quantile_list = [0, 2.5, 5, 10, 25, 50, 75, 90, 95, 97.5, 100]
+            self.expected_outbreak_quantiles = {q: self.model.I[0, 0] for q in quantile_list}
+
         else:
-            self.expected_outbreak_size = 'NA'
+            self.expected_outbreak_size     = 'NA'
             self.expected_outbreak_size_min = 'NA'
             self.expected_outbreak_size_max = 'NA'
+
         self.df_infected_1 = df_infected_1
 
         if self.print_summary_stats:
