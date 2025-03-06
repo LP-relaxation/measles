@@ -20,8 +20,9 @@ from enum import Enum
 from app_static_graphics import navbar, footer, \
     vaccination_rate_label, school_size_label, I0_label, R0_label, \
     latent_period_label, infectious_period_label, bottom_info_section, \
-    bottom_credits, inputs_panels, school_outbreak_projections_header
-from app_dynamic_graphics import results_header, spaghetti_plot_section
+    bottom_credits, school_outbreak_projections_header
+from app_dynamic_graphics import results_header, spaghetti_plot_section, \
+    inputs_panels
 from app_styles import BASE_FONT_STYLE, BASE_FONT_FAMILY_STR, \
     SELECTOR_DISPLAY_STYLE, DROPDOWN_BASE_CONFIG, SELECTOR_TOOLTIP_STYLE, \
     SELECTOR_NOTE_STYLE, RESULTS_HEADER_STYLE
@@ -287,10 +288,32 @@ app.layout = dbc.Container(
     ], fluid=True, style={"min-height": "100vh", "display": "flex", "flex-direction": "column"})
 
 
+def check_inputs_validity(init_infected: int,
+                          total_enrollment: int,
+                          vax_proportion: float):
+    """
+    IMPORTANT: vax_proportion must be between [0,1] --
+
+    TODO: fix inconsistencies with variable naming for vax percent --
+        I can see this being a cause of a bug/misunderstanding in the future
+        -- sometimes it's in percent form (so like an int, like 95)
+        and sometimes it's in decimal form
+    """
+    if total_enrollment is None or init_infected is None or vax_proportion is None:
+        return False
+
+    elif init_infected > int((1 - vax_proportion) * total_enrollment):
+        return False
+
+    else:
+        return True
+
+
 @callback(
     [Output('spaghetti_plot', 'figure'),
      Output('prob_20plus_new_str', 'children'),
-     Output('cases_expected_over_20_str', 'children')
+     Output('cases_expected_over_20_str', 'children'),
+     Output('warning_str', 'children')
      ],
     [Input('school_size', 'value'),
      Input('vax_rate', 'value'),
@@ -299,7 +322,13 @@ app.layout = dbc.Container(
      Input('latent_period', 'value'),
      Input('infectious_period', 'value')]
 )
-def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period):
+def update_graph(school_size,
+                 vax_rate,
+                 I0,
+                 R0,
+                 latent_period,
+                 infectious_period):
+
     school_size = school_size if school_size is not None else INPUT_DEFAULTS['school_size']
     vax_rate = vax_rate if vax_rate is not None else INPUT_DEFAULTS['vax_rate']
     I0 = I0 if I0 is not None else INPUT_DEFAULTS['I0']
@@ -320,45 +349,29 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
     params['incubation_period'] = float(latent_period)
     params['infectious_period'] = float(infectious_period)
 
-    stochastic_sim = msp.StochasticSimulations(
-        params, n_sim, print_summary_stats=False, show_plots=False)
+    inputs_are_valid = check_inputs_validity(init_infected=params["I0"][0],
+                                             total_enrollment=params["population"][0],
+                                             vax_proportion=params["vaccinated_percent"][0])
 
-    fig = msp.gimme_spaghetti_infected_ma(sim=stochastic_sim,
-                                          nb_curves_displayed=20,
-                                          curve_selection_seed=DASHBOARD_CONFIG["spaghetti_curve_selection_seed"])
+    if inputs_are_valid:
+        stochastic_sim = msp.StochasticSimulations(
+            params, n_sim, print_summary_stats=False, show_plots=False)
 
-    prob_20plus_new_str, cases_expected_over_20_str = \
-        msp.create_strs_20plus_new_and_outbreak(stochastic_sim,
-                                                DASHBOARD_CONFIG["outbreak_size_uncertainty_displayed"])
+        fig = msp.gimme_spaghetti_infected_ma(sim=stochastic_sim,
+                                              nb_curves_displayed=20,
+                                              curve_selection_seed=DASHBOARD_CONFIG["spaghetti_curve_selection_seed"])
 
-    return fig, prob_20plus_new_str, cases_expected_over_20_str
+        prob_20plus_new_str, cases_expected_over_20_str = \
+            msp.create_strs_20plus_new_and_outbreak(stochastic_sim,
+                                                    DASHBOARD_CONFIG["outbreak_size_uncertainty_displayed"])
 
+        return fig, prob_20plus_new_str, cases_expected_over_20_str, ""
 
-@callback(
-    [Output('I0', 'value'),
-     Output('warning', 'children')],
-    [Input('I0', 'value')],
-    [Input('school_size', 'value'),
-     Input('vax_rate', 'value')]
-)
-def enforce_condition(I0, school_size, vax_rate):
-    if school_size is None or I0 is None or vax_rate is None:
-        return I0, ""
+    else:
+        warning_str = "Invalid inputs: there are more initially " \
+                  "infected than unvaccinated students. Please adjust."
 
-    try:
-        if not (0 <= vax_rate <= 100):
-            return I0, "Error: Vaccination Rate must be between 0 and 100."
-
-        max_I0 = (100 - vax_rate) * school_size
-
-        if I0 > max_I0:
-            return max_I0, "Invalid inputs: there are more initially " \
-                           "infected than unvaccinated students. Please adjust."
-
-        return I0, ""
-
-    except TypeError:
-        return I0, "Error: Invalid input."
+        return px.line(), "", "", warning_str
 
 
 @callback(
