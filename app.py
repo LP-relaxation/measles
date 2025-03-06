@@ -370,8 +370,8 @@ app.layout = dbc.Container(
                             html.Br(),
                             dbc.Row(dbc.Col(html.I(
                                 "Caution – Default values reflect published estimates. Significant changes may result in inaccurate projections."),
-                                            className="mb-2 align-items-center",
-                                            style={"font-size": "14pt", "textAlign": "center"})),
+                                className="mb-2 align-items-center",
+                                style={"font-size": "14pt", "textAlign": "center"})),
 
                             dbc.Row([
                                 dbc.Col(accordion, className="mb-2"),
@@ -500,8 +500,8 @@ app.layout = dbc.Container(
             html.A(
                 "This dashboard uses a simple stochastic compartmental susceptible-exposed-infectious-removed (SEIR) model. The model includes only enrolled students, assumes vaccinated individuals cannot become infected, and does not consider intervention measures."),
             html.A([
-                       " The default parameters are based on estimates that are widely used by public health agencies: (1) a basic reproduction number (",
-                       html.I([html.A(["R", html.Sub("0")])]), " ) of 15 ["]),
+                " The default parameters are based on estimates that are widely used by public health agencies: (1) a basic reproduction number (",
+                html.I([html.A(["R", html.Sub("0")])]), " ) of 15 ["]),
             html.A("ECDC’s Factsheet about measles", href="https://www.ecdc.europa.eu/en/measles/facts",
                    target="_blank", style={"color": "#1b96bf", "textDecoration": "none"}),
             html.A("], (2) an average latent period of 10.5 days ["),
@@ -526,7 +526,7 @@ app.layout = dbc.Container(
             html.A("Values are estimated from 200 stochastic simulations as follows."),
             html.Ul([
                 html.Li([html.I("Chance of exceeding 20 infections"), html.A([
-                                                                                 " – The proportion of 200 simulations in which at least 20 additional students become infected, not counting the initial cases."])]),
+                    " – The proportion of 200 simulations in which at least 20 additional students become infected, not counting the initial cases."])]),
                 html.Li([html.I("Likely outbreak size"),
                          " – For each simulation that results in at least 20 additional infections, the total number of students infected is calculated, including the students initially infected. The reported range reflects the middle 95% of these values (i.e., the 2.5th to 97.5th percentile).",
                          html.Br(style={"margin": "0", "padding": "0"})]),
@@ -742,16 +742,26 @@ def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period
     [Output('I0', 'value'),
      Output('warning', 'children')],
     [Input('I0', 'value')],
-    [State('school_size', 'value')]
+    [Input('school_size', 'value'),
+     Input('vax_rate', 'value')]
 )
-def enforce_max_I0(I0, school_size):
-    if school_size is None or I0 is None:
+def enforce_condition(I0, school_size, vax_rate):
+    if school_size is None or I0 is None or vax_rate is None:
         return I0, ""
 
-    if I0 > school_size:
-        return 0, "Initial number infected exceeds number of unvaccinated students."
+    try:
+        if not (0 <= vax_rate <= 100):
+            return I0, "Error: Vaccination Rate must be between 0 and 100."
 
-    return I0, ""
+        max_I0 = (100 - vax_rate) * school_size
+
+        if I0 > max_I0:
+            return max_I0, "Invalid inputs: there are more initially infected than unvaccinated students. Please adjust."
+
+        return I0, ""
+
+    except TypeError:
+        return I0, "Error: Invalid input."
 
 
 @callback(
@@ -795,4 +805,4 @@ def update_school_vax_rate(school_with_age):  # county):
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0')
