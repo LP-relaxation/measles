@@ -16,6 +16,9 @@ import seaborn as sns
 import time
 import copy
 
+import plotly.express as px
+from enum import Enum
+
 # %% Print options
 ##################
 pd.set_option('display.precision', 1)
@@ -29,6 +32,15 @@ np.set_printoptions(precision=4)
 np.set_printoptions(linewidth=185)
 
 
+# %% Constants
+###############
+class OUTBREAK_SIZE_UNCERTAINTY_OPTIONS(Enum):
+    NINETY = '90'
+    NINETY_FIVE = '95'
+    RANGE = 'range'
+    IQR = 'IQR'
+
+
 # %% Functions
 ##############
 
@@ -37,7 +49,7 @@ def transform_matrix_to_long_df(
         colnames: list[str] = None,
         id_col: str = 'time_idx',
         id_values: list[str] = None,
-        var_name: str ='idx',
+        var_name: str = 'idx',
         value_name: str = 'value') -> pd.DataFrame:
     """
     Takes a 2D numpy array where each column represents a given simulation
@@ -110,8 +122,7 @@ def calculate_np_moving_average(
 def get_percentile_from_list(
         values_list: list[float],
         percentile_value: float,
-        error_value = 0.0) -> float:
-
+        error_value=0.0) -> float:
     if len(values_list) > 0:
         return np.percentile(values_list, q=percentile_value)
     else:
@@ -325,7 +336,7 @@ class StochasticSimulations:
         self.params['sigma'] = 1.0 / self.params['incubation_period']
         self.params['gamma'] = 1.0 / self.params['infectious_period']
 
-        self.RNG = np.random.Generator(np.random.MT19937(seed=params["RNG_starting_seed"]))
+        self.RNG = np.random.Generator(np.random.MT19937(seed=params["simulation_seed"]))
 
         self.n_sim = n_sim
         self.print_summary_stats = print_summary_stats
@@ -436,8 +447,9 @@ class StochasticSimulations:
         if len(df_over_20) > 0:
             # change param input infections to what was used by the model
             self.mean_outbreak_given_20_new_infections = self.model.I[0, 0] + \
-                                          (df_over_20['new_infected'] * df_over_20['probability']).sum() / \
-                                          df_over_20['probability'].sum()
+                                                         (df_over_20['new_infected'] * df_over_20[
+                                                             'probability']).sum() / \
+                                                         df_over_20['probability'].sum()
             cases_over_20 = self.new_infected_school1[
                 self.new_infected_school1 >= 20]
             quantile_list = [0, 2.5, 5, 10, 25, 50, 75, 90, 95, 97.5, 100]
@@ -475,7 +487,7 @@ class StochasticSimulations:
             "df_spaghetti_incidence": (self.incidence_school_1, "number_incidence")
         }
 
-        id_values = list(range(1, 2 + params['sim_duration_days']))
+        id_values = list(range(1, 2 + MSP_PARAMS['sim_duration_days']))
 
         for df_name, (matrix, value_name) in plot_data_dict.items():
             setattr(self, df_name, transform_matrix_to_long_df(
@@ -533,6 +545,132 @@ def run_deterministic_model(params):
     model_deterministic.plot_results()
 
 
+SPAGHETTI_PLOT_AXIS_CONFIG = {
+    'showgrid': True,
+    'gridcolor': "rgb(242,242,242)",
+    'title_font': {
+        'size': 20,
+        'color': "black",
+        'family': "Sans-serif"
+    },
+    'tickfont': {
+        'size': 16,
+        'color': "black",
+        'family': "Sans-serif"
+    },
+    'zeroline': True,
+    'zerolinecolor': "white",
+    'linewidth': 2,
+    'mirror': True
+}
+
+
+def create_strs_20plus_new_and_outbreak(sim: StochasticSimulations,
+                                        outbreak_size_uncertainty_displayed: OUTBREAK_SIZE_UNCERTAINTY_OPTIONS):
+    """
+    Sorry for this UGLY function name :)
+
+    Returns 2 strings to populate the written text portion of the dashboard
+    - 1st string corresponds to probability of exceeding 20 new infections
+    - 2nd corresponds to likely (expected) outbreak size if there are 20+ new infections
+
+    TODO: in the future, we can write this function and also related functions
+        in the StochasticSims class to take in an arbitrary new infection cut-off,
+        not just hardcoded 20.
+    """
+
+    prob_20plus_new_str = '{:.0%}'.format(sim.probability_20_plus_cases)
+
+    if sim.mean_outbreak_given_20_new_infections == 'NA':
+        cases_expected_over_20_str = "Fewer than 20 new infections"
+
+    else:
+
+        if outbreak_size_uncertainty_displayed == OUTBREAK_SIZE_UNCERTAINTY_OPTIONS.NINETY:
+            quantile_lb, quantile_ub, range_name = 5, 95, '90% CI'
+        elif outbreak_size_uncertainty_displayed == OUTBREAK_SIZE_UNCERTAINTY_OPTIONS.NINETY_FIVE:
+            quantile_lb, quantile_ub, range_name = 2.5, 97.5, '95% CI'
+        elif outbreak_size_uncertainty_displayed == OUTBREAK_SIZE_UNCERTAINTY_OPTIONS.RANGE:
+            quantile_lb, quantile_ub, range_name = 0, 100, 'range'
+        elif outbreak_size_uncertainty_displayed == OUTBREAK_SIZE_UNCERTAINTY_OPTIONS.IQR:
+            quantile_lb, quantile_ub, range_name = 25, 75, 'IQR'
+
+        uncertainty_outbreak_size_str = str(int(sim.expected_outbreak_quantiles[quantile_lb])) + ' - ' + \
+                                        str(int(sim.expected_outbreak_quantiles[quantile_ub]))
+
+        cases_expected_over_20_str = uncertainty_outbreak_size_str + " total cases"
+
+    return prob_20plus_new_str, cases_expected_over_20_str
+
+
+def gimme_spaghetti_infected_ma(sim: StochasticSimulations,
+                                nb_curves_displayed: int,
+                                curve_selection_seed: int):
+    """
+    Guess who named this function? ;)
+    Hope whoever is reading this has a good day! :)
+
+    TODO: can be refactored to plot other dataframes too,
+    not just infected moving average.
+
+    Returns plotly.graph_objects.Figure
+    """
+
+    df_spaghetti_infected_ma = sim.df_spaghetti_infected_ma
+    index_sim_closest_median = sim.index_sim_closest_median
+
+    light_grey = 'rgb(220, 220, 220)'
+
+    color_map = {
+        x: light_grey
+        for x in df_spaghetti_infected_ma['simulation_idx'].unique()
+    }
+    color_map[index_sim_closest_median] = 'rgb(0, 153, 204)'  # blue
+
+    possible_idx = [
+        x for x in df_spaghetti_infected_ma['simulation_idx'].unique()
+        if x != index_sim_closest_median
+    ]
+
+    sample_idx = np.random.Generator(
+        np.random.MT19937(curve_selection_seed)).choice(possible_idx,
+                                                        nb_curves_displayed,
+                                                        replace=False)
+
+    df_plot = pd.concat([
+        df_spaghetti_infected_ma.loc[df_spaghetti_infected_ma['simulation_idx'].isin(sample_idx)],
+        df_spaghetti_infected_ma.loc[df_spaghetti_infected_ma['simulation_idx'] == index_sim_closest_median]
+    ])
+
+    fig = px.line(
+        df_plot,
+        x='day',
+        y='number_infected_7_day_ma',
+        color='simulation_idx',
+        color_discrete_map=color_map,
+        labels={'simulation_idx': '', 'number_infected': 'Number of students infected', 'day': 'Day DD',
+                "number_infected_7_day_ma": "NN infected (7-day average)"},
+    )
+
+    fig.update_traces(hovertemplate="Day %{x}<br>%{y:.1f} Infected<extra></extra>")
+    fig.update_traces(line=dict(width=2))  # Reduce line thickness
+
+    fig.update_layout(showlegend=False,
+                      plot_bgcolor='white',
+                      margin=dict(l=0, r=0, t=0, b=0),
+                      xaxis=dict(
+                          title="Day",
+                          **SPAGHETTI_PLOT_AXIS_CONFIG,
+                          linecolor="grey"),
+                      yaxis=dict(
+                          title="Number of infected students",
+                          **SPAGHETTI_PLOT_AXIS_CONFIG,
+                          linecolor="black"
+                      ))
+
+    return fig
+
+
 # Set parameters
 # Natural history parameters
 # https://www.cdc.gov/measles/hcp/communication-resources/clinical-diagnosis-fact-sheet.html
@@ -540,7 +678,7 @@ def run_deterministic_model(params):
 # Rash starts: 3 days after first symptoms, so 14.5 since t0
 # Infectious: 4 days before rash (so 10.5 days since t0), 4 days after (18.5 days since t0)
 
-params = {
+MSP_PARAMS = {
     'R0': 15.0,  # transmission rate
     # 'sigma': 1/10.5,    # 10.5 days average latent period
     # 'rho': 1/1,         # 1 days average pre-symptomatic period
@@ -555,7 +693,7 @@ params = {
     'sim_duration_days': 250,
     'time_step_days': 0.25,
     'is_stochastic': True,  # False for deterministic,
-    "RNG_starting_seed": 147125098488
+    "simulation_seed": 147125098488
 }
 n_sim = 100
 
@@ -563,9 +701,9 @@ n_sim = 100
 ##########
 # Example usage
 if __name__ == "__main__":
-    run_deterministic_model(params)
+    run_deterministic_model(MSP_PARAMS)
 
     # Stochastic runs
     n_sim = 100
     stochastic_sim = StochasticSimulations(
-        params, n_sim, print_summary_stats=True, show_plots=True)
+        MSP_PARAMS, n_sim, print_summary_stats=True, show_plots=True)
