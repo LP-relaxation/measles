@@ -20,11 +20,11 @@ from enum import Enum
 from app_static_graphics import navbar, footer, \
     vaccination_rate_label, school_size_label, I0_label, R0_label, \
     latent_period_label, infectious_period_label, bottom_info_section, \
-    bottom_credits
+    bottom_credits, inputs_panels, school_outbreak_projections_header
+from app_dynamic_graphics import results_header, spaghetti_plot_section
 from app_styles import BASE_FONT_STYLE, BASE_FONT_FAMILY_STR, \
     SELECTOR_DISPLAY_STYLE, DROPDOWN_BASE_CONFIG, SELECTOR_TOOLTIP_STYLE, \
     SELECTOR_NOTE_STYLE, RESULTS_HEADER_STYLE
-
 
 DASHBOARD_CONFIG = {
     'num_simulations': 200,
@@ -35,7 +35,6 @@ DASHBOARD_CONFIG = {
 
 msp.MSP_PARAMS["simulation_seed"] = DASHBOARD_CONFIG["simulation_seed"]
 
-
 INPUT_DEFAULTS = {
     'school_size': 500,
     'vax_rate': 0.0,
@@ -43,6 +42,10 @@ INPUT_DEFAULTS = {
     'R0': 15.0,
     'latent_period': 10.5,
     'infectious_period': 8.0}
+
+# TODO: move selectors to their own file
+# TODO: what is df and df_county doing? The way these dataframes are
+#   hardcoded into these functions seems risky.
 
 df = pd.read_csv('TX_MMR_vax_rate.csv')
 
@@ -194,7 +197,7 @@ app.scripts.append_script({
 app.scripts.append_script({'external_url': '/assets/gtag.js'})
 
 # Define the accordion separately
-accordion = html.Div(
+epi_params_accordion = html.Div(
     dbc.Accordion(
         [
             dbc.AccordionItem(
@@ -220,7 +223,7 @@ accordion = html.Div(
 )
 
 # Define the accordion separately
-accordion_vax = dbc.Accordion(
+school_district_accordion = dbc.Accordion(
     [
         dbc.AccordionItem(
             html.Div(
@@ -242,71 +245,6 @@ accordion_vax = dbc.Accordion(
     active_item=[],  # Empty list means all sections are closed by default
 )
 
-def results_header():
-    return dbc.Row(
-                    [
-                        # Chance of an Outbreak
-                        dbc.Col(
-                            dbc.Card(
-                                dbc.CardBody(
-                                    [
-                                        html.Div(
-                                            [
-                                                dcc.Markdown(id='outbreak',
-                                                             children='Chance of exceeding 20 new infections',
-                                                             style={**RESULTS_HEADER_STYLE}
-                                                             ),
-                                                dcc.Markdown(id='prob_20plus_new_str',
-                                                             style={**RESULTS_HEADER_STYLE, 'color': '#bf5700'}
-                                                             ),
-                                            ],
-                                            style={
-                                                'textAlign': 'center',
-                                                'fontFamily': BASE_FONT_FAMILY_STR,
-                                                'fontSize': '18pt',
-                                                'border': 'none'
-                                            }
-                                        )
-                                    ]
-                                ),
-                                style={'border': 'none'}
-                            ),
-                        ),
-
-                        # Expected Outbreak Size
-                        dbc.Col(
-                            dbc.Card(
-                                dbc.CardBody(
-                                    [
-                                        html.Div(
-                                            [
-                                                dcc.Markdown(id='cases',
-                                                             children='Likely outbreak size',
-                                                             style={'color': '#black', 'fontWeight': '500',
-                                                                    'font-size': '20pt', 'margin': 'none'}
-                                                             ),
-                                                dcc.Markdown("*if exceeds 20 new infections*",
-                                                             style={'font-size': '14pt', "margin": "none"}),
-                                                dcc.Markdown(id='cases_expected_over_20_str',
-                                                             style={'color': '#bf5700', 'fontWeight': '800',
-                                                                    'font-size': '22pt', 'margin-top': '0.5em'}
-                                                             ),
-                                            ],
-                                            style={
-                                                'textAlign': 'center',
-                                                'fontFamily': BASE_FONT_FAMILY_STR,
-                                                'fontSize': '18pt',
-                                                'border': 'none'
-                                            }
-                                        )
-                                    ]
-                                ),
-                                style={'border': 'none'}
-                            ),
-                            style={'borderLeft': '3px solid #bf5700'}
-                        ),
-                    ],
-                )
 
 app.layout = dbc.Container(
     [
@@ -317,85 +255,20 @@ app.layout = dbc.Container(
         # Main Layout with Left and Right Sections
         dbc.Row([
             # Left section
-            dbc.Col(
-                dbc.Card(
-                    dbc.CardBody(
-                        [
-                            html.H3("Model Inputs", style={"margin-left": "0.2em", "margin-top": "0.5em",
-                                                           "font-family": BASE_FONT_FAMILY_STR,
-                                                           "font-size": "24pt", "font-weight": "500",
-                                                           "textAlign": "center"}, className="mt-2"),
-                            html.Br(),
-                            dbc.Row([
-                                dbc.Col([
-                                    html.Div(school_size_label),
-                                    html.Div(school_size_selector),
-                                ], className="d-flex flex-column align-items-center"),
-                            ], className="d-flex flex-column align-items-center mb-2"),
+            html.Br(),
 
-                            dbc.Row([
-                                dbc.Col([
-                                    html.Div(I0_label),
-                                    html.Div(I0_selector),
-                                    html.Div(id='warning',
-                                             style={"color": "red", "font-size": "12", "text-align": "center"},
-                                             className="d-flex flex-column align-items-center"),
-                                ], className="d-flex flex-column align-items-center"),
-                            ], className="d-flex flex-column align-items-center mb-2"),
-
-                            dbc.Row([
-                                dbc.Col(html.Div(vaccination_rate_label),
-                                        className="d-flex flex-column align-items-center"),
-                            ]),
-
-                            dbc.Row([
-                                dbc.Col([
-                                    html.H3("Enter value or select from Lookup.", style={**SELECTOR_NOTE_STYLE}),
-                                    html.H3("Update School Enrollment above.", style={**SELECTOR_NOTE_STYLE}),
-                                ]),
-                            ]),
-
-                            dbc.Row([
-                                dbc.Col([
-                                    html.Div(vaccination_rate_selector), html.Div(" OR ", style={"font-size": "16pt",
-                                                                                                 "margin-top": "0.5em",
-                                                                                                 "margin-bottom": "0.5em"}),
-                                    html.Div(accordion_vax, style={"width": "100%", "textAlign": "center"}),
-                                ], className="d-flex flex-column align-items-center"),
-                            ], style={"border-bottom": "2px solid black", "margin-right": "0.2em"}),
-
-                            html.Br(),
-                            html.H3("Epidemic Parameters", style={"margin-left": "0.2em", "margin-top": "0.5em",
-                                                                  "font-family": BASE_FONT_FAMILY_STR,
-                                                                  "font-size": "24pt", "font-weight": "500",
-                                                                  "textAlign": "center"}),
-                            html.Br(),
-                            dbc.Row(dbc.Col(html.I(
-                                "Caution – Default values reflect published estimates. Significant changes may result in inaccurate projections."),
-                                className="mb-2 align-items-center",
-                                style={"font-size": "14pt", "textAlign": "center"})),
-
-                            dbc.Row([
-                                dbc.Col(accordion, className="mb-2"),
-                            ]),
-                        ]
-                    ),
-                    style={'border': 'none'}
-                ),
-                width=3, xs=12, sm=12, md=12, lg=12, xl=3,
-                style={"border-right": "2px solid black", "padding": "10px"},
-            ),
+            inputs_panels(school_size_header=school_size_label,
+                          school_size_input=school_size_selector,
+                          I0_header=I0_label,
+                          I0_input=I0_selector,
+                          vaccination_rate_header=vaccination_rate_label,
+                          vaccination_rate_input=vaccination_rate_selector,
+                          top_accordion=epi_params_accordion,
+                          bottom_accordion=school_district_accordion),
             dbc.Col([
-                # Outcomes section
-                html.H3("School Outbreak Projections", style={"text-align": "center", "margin-top": "0.8em",
-                                                              "font-family": BASE_FONT_FAMILY_STR,
-                                                              "font-size": "24pt", "font-weight": "500"}),
-                html.H3(
-                    "Projections assume no interventions and no breakthrough infections among vaccinated students, and they do not account for infections among non-students in the surrounding community.",
-                    style={**SELECTOR_NOTE_STYLE}),
-                html.H3(
-                    "Active measles control measures could lead to substantially smaller and shorter outbreaks than these projections suggest.",
-                    style={**SELECTOR_NOTE_STYLE}),
+                html.Br(),
+
+                school_outbreak_projections_header(),
 
                 html.Br(),
 
@@ -403,23 +276,7 @@ app.layout = dbc.Container(
 
                 html.Br(),
 
-                dbc.Row([
-                    dbc.Col(
-                        dbc.Card(
-                            dbc.CardBody([
-                                html.H3("This graph shows 20 plausible school outbreak curves.",
-                                        style={"text-align": "center", "margin-top": "1em", "margin-bottom": "1em",
-                                               "margin-left": "1.8em",
-                                               "font-family": BASE_FONT_FAMILY_STR,
-                                               "font-size": "14pt", "font-weight": "400", "font-style": "italic"}),
-                                dcc.Graph(id="spaghetti_plot"),
-                            ]),
-                            style={'border': 'none', 'padding': '0'},
-                        ),
-                    ),
-                ], style={"border-top": "2px solid black", "border-left": "1em", "padding": "none", "height": "60%",
-                          "width": "100%", "margin-top": "1em"}),
-            ], className="col-xl-9"),
+                spaghetti_plot_section()], className="col-xl-9")
         ]),
 
         html.Br(),
@@ -443,7 +300,6 @@ app.layout = dbc.Container(
      Input('infectious_period', 'value')]
 )
 def update_graph(school_size, vax_rate, I0, R0, latent_period, infectious_period):
-
     school_size = school_size if school_size is not None else INPUT_DEFAULTS['school_size']
     vax_rate = vax_rate if vax_rate is not None else INPUT_DEFAULTS['vax_rate']
     I0 = I0 if I0 is not None else INPUT_DEFAULTS['I0']

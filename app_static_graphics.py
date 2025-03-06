@@ -1,7 +1,10 @@
+# These functions/components do NOT change based on callbacks
+#   -- these stay STATIC on the webpage
+
 from dash import Dash, html, dcc, callback, Output, Input, State
 import dash_bootstrap_components as dbc
 
-from app_styles import RESULTS_HEADER_STYLE, BASE_FONT_FAMILY_STR
+from app_styles import RESULTS_HEADER_STYLE, BASE_FONT_FAMILY_STR, SELECTOR_NOTE_STYLE
 
 # Navbar component
 navbar = dbc.Navbar(
@@ -73,6 +76,110 @@ infectious_period_label = html.H4(
     'Average Infectious Period (days)',
     style={'display': 'inline-block', 'margin-right': 5, 'margin-left': 5, 'fontFamily': 'Sans-serif',
            'font-size': '16pt'})
+
+
+def inputs_panels(school_size_header: html.H4,
+                  school_size_input: dcc.Input,
+                  I0_header: html.H4,
+                  I0_input: dcc.Input,
+                  vaccination_rate_header: html.H4,
+                  vaccination_rate_input: dcc.Input,
+                  top_accordion: dbc.Accordion,
+                  bottom_accordion: dbc.Accordion) -> dbc.Col:
+    return dbc.Col(
+        dbc.Card(
+            dbc.CardBody(
+                [
+                    html.H3("Model Inputs", style={"margin-left": "0.2em", "margin-top": "0.5em",
+                                                   "font-family": BASE_FONT_FAMILY_STR,
+                                                   "font-size": "24pt", "font-weight": "500",
+                                                   "textAlign": "center"}, className="mt-2"),
+                    html.Br(),
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div(school_size_header),
+                            html.Div(school_size_input),
+                        ], className="d-flex flex-column align-items-center"),
+                    ], className="d-flex flex-column align-items-center mb-2"),
+
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div(I0_header),
+                            html.Div(I0_input),
+                            html.Div(id='warning',
+                                     style={"color": "red", "font-size": "12", "text-align": "center"},
+                                     className="d-flex flex-column align-items-center"),
+                        ], className="d-flex flex-column align-items-center"),
+                    ], className="d-flex flex-column align-items-center mb-2"),
+
+                    dbc.Row([
+                        dbc.Col(html.Div(vaccination_rate_header),
+                                className="d-flex flex-column align-items-center"),
+                    ]),
+
+                    dbc.Row([
+                        dbc.Col([
+                            html.H3("Enter value or select from Lookup.", style={**SELECTOR_NOTE_STYLE}),
+                            html.H3("Update School Enrollment above.", style={**SELECTOR_NOTE_STYLE}),
+                        ]),
+                    ]),
+
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div(vaccination_rate_input), html.Div(" OR ", style={"font-size": "16pt",
+                                                                                      "margin-top": "0.5em",
+                                                                                      "margin-bottom": "0.5em"}),
+                            html.Div(top_accordion, style={"width": "100%", "textAlign": "center"}),
+                        ], className="d-flex flex-column align-items-center"),
+                    ], style={"border-bottom": "2px solid black", "margin-right": "0.2em"}),
+
+                    html.Br(),
+                    html.H3("Epidemic Parameters", style={"margin-left": "0.2em", "margin-top": "0.5em",
+                                                          "font-family": BASE_FONT_FAMILY_STR,
+                                                          "font-size": "24pt", "font-weight": "500",
+                                                          "textAlign": "center"}),
+                    html.Br(),
+                    dbc.Row(dbc.Col(html.I(
+                        "Caution – Default values reflect published estimates. Significant changes may result in inaccurate projections."),
+                        className="mb-2 align-items-center",
+                        style={"font-size": "14pt", "textAlign": "center"})),
+
+                    dbc.Row([
+                        dbc.Col(bottom_accordion, className="mb-2", style={"width": "100%", "textAlign": "center"}),
+                    ]),
+                ]
+            ),
+            style={'border': 'none'}
+        ),
+        width=3, xs=12, sm=12, md=12, lg=12, xl=3,
+        style={"border-right": "2px solid black", "padding": "10px"},
+    )
+
+
+def school_outbreak_projections_header():
+
+    TITLE_STYLE = {
+        "text-align": "center",
+        "font-family": BASE_FONT_FAMILY_STR,
+        "font-size": "24pt",
+        "font-weight": "500"
+    }
+
+    # Define the list of texts
+    texts = [
+        "School Outbreak Projections",
+        "Projections assume no interventions and no breakthrough infections "
+        "among vaccinated students, and they do not account for infections "
+        "among non-students in the surrounding community.",
+        "Active measles control measures could lead to substantially smaller "
+        "and shorter outbreaks than these projections suggest."
+    ]
+
+    # Generate the H3 components dynamically
+    return html.Div([
+        html.H3(text, style=TITLE_STYLE if i == 0 else SELECTOR_NOTE_STYLE)
+        for i, text in enumerate(texts)])
+
 
 # bottom info section
 def bottom_info_section():
@@ -165,3 +272,4 @@ def bottom_credits():
                        style={"color": "#ffffff", "text-decoration": "none", "font-size": "11px"}),
             ], style={"textAlign": "center", "padding": "10px"}), width=12)
         ], style={"backgroundColor": "#292929", "marginTop": "auto"})
+
